@@ -4,7 +4,7 @@ output:
   html_document:
     df_print: paged
 ---
-1. Erstellen Sie eine Analyse, bei der nicht die Bücher, sondern die Autoren in den Transaktionen enthalten sind:  
+1. Erstellen Sie eine Analyse, bei der nicht die Bücher, sondern die Autoren in den Transaktionen enthalten sind:   
 
 siehe unten
     
