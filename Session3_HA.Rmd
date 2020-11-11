@@ -1,18 +1,86 @@
 ---
-title: "R Notebook"
-output: html_notebook
+title: "Hausaufgabe 3 - Data Science - Silvia Kruse"
+output:
+  html_document:
+    df_print: paged
 ---
+1. Erstellen Sie eine Analyse, bei der nicht die Bücher, sondern die Autoren in den Transaktionen enthalten sind:  
 
-This is an [R Markdown](http://rmarkdown.rstudio.com) Notebook. When you execute code within the notebook, the results appear beneath the code. 
+siehe unten
+    
+2. Fällt Ihnen etwas in der Datenqualität auf?
 
-Try executing this chunk by clicking the *Run* button within the chunk or by placing your cursor inside it and pressing *Ctrl+Shift+Enter*. 
+Einige Autoren kommen in verschiedenen Schreibweisen/Groß-Kleinschreibung vor. Zum Beispiel Michael Crichton bzw. MICHAEL CRICHTON. Somit werden Bücher dieser Autoren seperat bewertet und ggf.untereinander verknüpft. Die erste Regel (wenn man die Daten nicht bereinigt) lautet beispielsweise:{MICHAEL CRICHTON} => {Michael Crichton}
+    
+Zudem sind einige Autoren manchmal mit und manchmal ohne Middlenames/zweiten Nach-/Vornamen etc. angegeben 
+Zum Beispiel: patricia d. cornwell oder patricia cornwell oder patricia daniels cornwell
+    
+    
+3. Wie könnte man das mit regulären Ausdrücken beheben?
+
+
+Zunächst habe ich nach einer Methode gesucht, um alle Autoren klein und somit einheitlich zu schreiben und fand den "tolower" Befehl. Um diesen anwenden zu können, musste ich außerdem Sonderzeichen, die z.B. bei Patrick Süßkind (Patrick S�?¼skind) vorkamen, entfernen (vorhab erhielt ich eine Fehlermeldung).
+
+Im Anschluss habe ich das Problem der Middlenames etc. versucht zu lösen und dafür mit dem Befehl sub(pattern = "old", replacement = "new", x) gearbeitet. Dort habe ich die häufigsten Problemfälle eingetragen (allerdings nicht alle) und dadurch die Middlenames etc. aus den Autorennamen entfernt. Es gibt sicherlich eine praktikablere Lösung, mein Versuch funktioniert meiner Meinung nach aber für die Aufgabe. 
+
+4. Wie kann man nun noch sicherstellen, dass nur die Autoren weiterempfohlen werden, deren Bücher man auch (mehrheitlich) gut fand?
+
+Wie in der letzten Sitzung habe ich die Ratings zu Beginn begrenzt, indem ich einen Filter von mind. 7-Sternen-Bewertungen eingebaut habe. 
+
+5. Welche anderen Features wären sinnvoll?
+
+Einige Bücher scheinen von mehreren Autoren geschrieben zu sein z.B. {Dean Koontz,John Grisham}. Diese Titel werden seperat behandelt und nicht mit den anderen Titeln der Autoren in Verbindung gesetzt. Zudem ist die Reihenfolge, in der dieselben Autoren genannt sind, in verschiedenen Fällen unterschiedlich. Sinnvoll wäre es ein Feature zu haben, dass Bücher auch zu einem bestimmten Autoren verknüpft, auch wenn noch andere Autoren mitgeschrieben haben. Ich habe versucht dieses Problem zu lösen, habe es aber leider nicht hinbekommen. 
 
 ```{r}
-plot(cars)
+library(tidyverse)
+library(arules)
+library(arulesViz)
 ```
 
-Add a new chunk by clicking the *Insert Chunk* button on the toolbar or by pressing *Ctrl+Alt+I*.
+```{r}
+all <- read_csv("all.csv") %>%
+filter(`Book-Rating` > 6) #Eingrenzung der Ratings über 6-Sternen 
+```
 
-When you save the notebook, an HTML file containing the code and output will be saved alongside it (click the *Preview* button or press *Ctrl+Shift+K* to preview the HTML file).
+```{r message=FALSE}
+autoren=str_replace_all(all$`Book-Author`,"[^[:graph:]]", " ") #Entfernung der Sonderzeichen
+autoren <- tolower(autoren) #Kleinschreibung aller Autorennamen, um zu vereinheitlichen
+```
 
-The preview shows you a rendered HTML copy of the contents of the editor. Consequently, unlike *Knit*, *Preview* does not run any R code chunks. Instead, the output of the chunk when it was last run in the editor is displayed.
+
+
+```{r sub} 
+#einheitliches Ersetzen von Schreibweisen um Problem mit Middlenames etc. zu lösen
+autoren <- sub(pattern = "dean r. koontz", replacement = "dean koontz", autoren) 
+autoren <- sub(pattern = "patricia d. cornwell", replacement = "patricia cornwell", autoren)
+autoren <- sub(pattern = "patricia daniels cornwell", replacement = "patricia cornwell", autoren)
+autoren <- sub(pattern = "j.r.r. tolkien", replacement = "j. r. r. tolkien", autoren)
+autoren <- sub(pattern = "tim f. lahaye", replacement = "tim lahaye", autoren)
+```
+
+
+```{r message=FALSE}
+i <- split (autoren,all$`User-ID`)
+txn <- as(i, "transactions")
+basket_rules <- apriori(txn, parameter = list(sup = 0.0005, conf = 0.001, minlen=2, target="rules"))
+```
+
+
+```{r}
+myRules_Direct <- as(basket_rules, "data.frame")
+basket_rules_hi <- head(basket_rules, by ="lift",100)
+head(myRules_Direct, 20)
+```
+
+
+```{r}
+plot(basket_rules_hi, method="graph", main="Book-Author")
+```
+
+
+```{r}
+plot(basket_rules_hi, method="graph", main="Book-Authors", engine="interactive")
+```
+
+
+
