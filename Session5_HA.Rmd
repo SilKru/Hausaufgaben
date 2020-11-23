@@ -1,0 +1,100 @@
+---
+title: "Hausaufgabe Session 5 - Silvia Kruse"
+output: html_notebook
+---
+Hausaufgabe: 
+Versuchen Sie die Leser aus dem Buch-Datenset zu clustern: Welche Bücher gehören in welches Cluster? 
+
+Anmerkung: Ich habe den Datensatz users_books sehr stark gefiltert, damit ich Berechnungen ausführen konnte. Wie es am letzten Samstag bei vielen das Problem war, war auch mein Laptop mit seiner Rechnenkapazität am Ende.  
+
+
+```{r}
+library(tidyverse)
+library(cluster)
+library(caret)
+```
+
+```{r}
+all <- read_csv("all.csv")
+```
+
+```{r}
+users_books <- all %>%
+  group_by(`Book-Title`) %>%
+  mutate(no_of_books = n()) %>%
+  filter(no_of_books > 299) %>% #ich habe hier erhöht, um eine überschaubarere Liste zu bekommen (Rechenkapazität)
+  filter(`Book-Rating` > 9) %>%
+  select(`User-ID`, `Book-Title`)
+  
+```
+
+```{r}
+users_books <- users_books %>%
+  unique()
+books_wide <- users_books %>%
+  mutate(i = 1) %>%
+  spread(`Book-Title`,i,fill=0)
+```
+1. Hierarchisches Clustering 
+
+```{r}
+(users_books.dist <- dist(users_books, method="euclidean"))
+```
+Dendrogramm: 
+```{r}
+users_books.hc <- hclust(users_books.dist, method = "complete")
+plot(users_books.hc)
+```
+```{r}
+users_books.hc <- hclust(users_books.dist, method = "complete")
+plot(users_books.hc)
+groups <- cutree(users_books.hc, k=3) 
+rect.hclust(users_books.hc, k=3, border="red")
+```
+ScreeTest: Das Ergebnis des ScreeTests lässt eine Einteilung in 2 oder 3 Cluster vermuten: 
+
+```{r}
+wss <- (nrow(books_wide)-1)*sum(apply(books_wide,2,var))
+  for (i in 2:10) wss[i] <- sum(kmeans(books_wide,
+                                       centers=i)$withinss)
+plot(1:10, wss, type="b", xlab="Number of Clusters",
+     ylab="Within groups sum of squares")
+```
+2. K Means Clustering: 
+
+Ich habe mich dazu entschieden 3 Cluster zu berechnen. 
+Allerdings erhält man sehr große Überlappungen zwischen den Clustern (dies ist auch bei 2 Clustern der Fall). 
+
+```{r}
+k.means.fit <- kmeans(books_wide, 3) 
+```
+
+```{r}
+k.means.fit$size
+```
+
+```{r}
+clusplot(books_wide, k.means.fit$cluster, color=TRUE, shade=TRUE,
+labels=4, lines=0, main="K-means cluster plot")
+```
+
+Ich habe versucht herauszufinden, welche Bücher zu den Clustern gehören und habe eine Teillösung: 
+Ich habe die Tabelle cluster_books erstellt, in welcher die Wahrscheinlichkeit (o.ä.) der drei Cluster für jedes Buch berechnet wird. Aus dieser kann man dann manuell ablesen, zu welchem Cluster ein Buch zugeteilt wurde. 
+
+Zum Beispiel:  1st to Die: A Novel hat die folgenden Werte: 
+1 0.011009174
+2 0.008014248
+3 0.008021390    ...und wird dementsprechend Cluster 1 zugeteilt.
+
+
+Die Zeile User-ID ergibt in diesem Fall glaube ich keinen Sinn, da dort vermutlich der Mittelwert o.ä. berechnet wurde. 
+
+```{r}
+cluster_books <- aggregate(books_wide, by=list(cluster=k.means.fit$cluster), mean)
+print(cluster_books)
+```
+Im Anschluss habe ich versucht die Tabelle so zu mutieren/filtern, dass für jedes Buch die höchste Wahrscheinlichkeit herausgefiltert wird und das dazugehörige Cluster. Allerdings bin ich an dieser Aufgabe gescheitert. Ich habe es u.a. mit verschiedenen mutate-Befehlen, dem Höchstwert der jeweiligen Spalten und ähnlichem versucht. 
+
+
+
+
